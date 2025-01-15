@@ -1,0 +1,105 @@
+version: "3.0"
+services:
+   #kafka:
+    #restart: always
+    #image: wurstmeister/kafka:2.12-2.4.0
+    #image: bitnami/kafka:latest
+    #container_name: kafka_con 
+    #ports:
+     # - 2181:2181
+     # - 9092:9092
+    #entrypoint: ['sh', '/entrypoints/kafka-entrypoint.sh']
+    #volumes:
+     # - ./kafka-tmp/kafka-logs:/tmp/kafka-logs
+     # - ./kafka-tmp/zookeeper:/tmp/zookeeper
+     # - ../etl-core/config:/config
+     # - ./entrypoints:/entrypoints
+
+   kafka2:
+     image: confluentinc/cp-kafka:latest
+     container_name: kafka
+     ports:
+       - 9092:9092
+       - 29092:29092 # Internal listener
+     environment:
+       KAFKA_KRAFT_MODE: "true"
+       KAFKA_PROCESS_ROLES: broker,controller
+       KAFKA_NODE_ID: 1
+       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+       KAFKA_LOG_DIRS: /var/lib/kafka/data
+       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+       CLUSTER_ID: o1XXzVd_SbGXRA1n-sUIig
+       KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false" 
+     volumes:
+       - kafka_data:/var/lib/kafka/data
+      
+      
+   cassandra:
+       restart: always
+       image: cassandra:latest
+       container_name: cassandra_con 
+       ports:
+          - 17000:7000
+          - 17001:7001
+          - 17199:7199
+          - 19042:9042
+          - 19160:9160
+       #entrypoint: ['sh', '/entrypoints/kafka-entrypoint.sh']
+       volumes:
+         - cassandra_data:/var/lib/cassandra
+         #- /var/lib/cassandra
+         
+   postgres:
+        image: postgres:latest
+        container_name: postgres_con
+        ports:
+          - "15432:5432"
+        environment:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: mydb
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+   redis:
+        image: redis:latest
+        container_name: redis_con
+        ports:
+              - "6379:6379"
+        command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+        volumes:
+              - redis_data:/data
+   vault:
+        image: hashicorp/vault:latest
+        container_name: vault_con
+        environment:
+          VAULT_DEV_ROOT_TOKEN_ID: testtoken
+        ports:
+          - 8200:8200
+        privileged: true
+   vault-tls:
+        image: hashicorp/vault:latest
+        container_name: vault-tls_con
+        hostname: vault-tls
+        environment:
+          VAULT_CAPATH: /etc/vault/ca.crt
+        ports:
+          - 18200:8200
+        privileged: true
+        volumes:
+        - ${PWD}/integrationTests/e2e-tls/configs:/etc/vault
+        - vault-data:/var/lib/vault:rw
+        #entrypoint: vault server -config=/etc/vault/config.hcl
+
+volumes:
+  vault-data:
+  cassandra_data:
+  postgres_data:
+  redis_data:
+  kafka_data:
+
